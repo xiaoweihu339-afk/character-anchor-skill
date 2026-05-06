@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "default_llm": null,
+  "default_vision_reviewer": null,
+  "default_image_generator": null,
+  "providers": [],
+  "privacy_mode": {
+    "prefer_local_for_biometrics": true,
+    "allow_remote_generation": null
+  }
+}

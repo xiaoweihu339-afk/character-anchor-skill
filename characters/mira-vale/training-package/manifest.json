@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "anchor_version": "0.1.0",
+  "target_adapter_type": null,
+  "included_images": [],
+  "excluded_images": [],
+  "captions": [],
+  "safety_exclusions": [],
+  "quality_notes": []
+}

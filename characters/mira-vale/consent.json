@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "source_type": "fictional_or_user_authorized",
+  "user_asserted_authorized": true,
+  "allowed_uses": [
+    "public demo",
+    "documentation",
+    "portfolio case study",
+    "prompt compilation tests"
+  ],
+  "disallowed_uses": [
+    "NSFW",
+    "real-person impersonation"
+  ],
+  "public_release_allowed": true,
+  "notes": [
+    "Mira Vale is a fictional text-only demo character created for this repository."
+  ]
+}

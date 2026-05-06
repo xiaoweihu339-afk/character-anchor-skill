@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.venv/
+venv/
+outputs/tmp/
+
+# Keep the public package clean: local test character libraries stay private.
+characters/*
+!characters/mira-vale/
+!characters/mira-vale/**
