@@ -27,6 +27,8 @@ DIRECTORIES = [
     "feedback",
     "adapters",
     "quality",
+    "quality/coverage",
+    "quality/face-lock",
     "training-package",
 ]
 
@@ -98,6 +100,29 @@ JSON_FILES = {
         "technical_corrections": [],
         "prompt_corrections": [],
     },
+    "quality/face-lock/face-lock.json": {
+        "schema_version": SCHEMA_VERSION,
+        "status": "draft",
+        "measurement_unit": "relative_ratio",
+        "source_references": [],
+        "face_geometry": {
+            "face_length_to_width": None,
+            "forehead_height_ratio": None,
+            "eye_spacing_ratio": None,
+            "eye_width_ratio": None,
+            "brow_to_eye_distance_ratio": None,
+            "nose_length_ratio": None,
+            "nose_width_ratio": None,
+            "mouth_width_ratio": None,
+            "upper_lip_to_lower_lip_ratio": None,
+            "jaw_width_ratio": None,
+            "chin_length_ratio": None,
+            "cheekbone_width_ratio": None,
+        },
+        "qualitative_locks": [],
+        "tuning_notes": [],
+        "updated_at": None,
+    },
     "adapters/model-providers.json": {
         "schema_version": SCHEMA_VERSION,
         "default_llm": None,
@@ -161,7 +186,7 @@ def main() -> int:
     parser.add_argument("--root", required=True, help="Workspace root or characters directory.")
     parser.add_argument("--character-id", required=True, help="Stable lowercase id, e.g. example-character.")
     parser.add_argument("--display-name", required=True, help="Human-readable character name.")
-    parser.add_argument("--anchor-version", default="0.1.0", help="Initial anchor version.")
+    parser.add_argument("--anchor-version", default="0.3.0", help="Initial anchor version.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing template files.")
     args = parser.parse_args()
 

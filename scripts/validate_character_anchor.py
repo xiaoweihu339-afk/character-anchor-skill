@@ -22,6 +22,8 @@ REQUIRED_DIRS = [
     "feedback",
     "adapters",
     "quality",
+    "quality/coverage",
+    "quality/face-lock",
     "training-package",
 ]
 
@@ -50,6 +52,7 @@ REQUIRED_JSON = [
     "references/index.json",
     "feedback/correction-rules.json",
     "adapters/model-providers.json",
+    "quality/face-lock/face-lock.json",
     "training-package/manifest.json",
 ]
 
@@ -184,6 +187,20 @@ def main() -> int:
         model_providers = parsed["adapters/model-providers.json"]
         require_fields("adapters/model-providers.json", model_providers, ["schema_version", "providers", "privacy_mode"], errors)
         require_list_field("adapters/model-providers.json", model_providers, "providers", errors)
+
+    if "quality/face-lock/face-lock.json" in parsed:
+        face_lock = parsed["quality/face-lock/face-lock.json"]
+        require_fields(
+            "quality/face-lock/face-lock.json",
+            face_lock,
+            ["schema_version", "status", "measurement_unit", "source_references", "face_geometry", "qualitative_locks", "tuning_notes"],
+            errors,
+        )
+        require_list_field("quality/face-lock/face-lock.json", face_lock, "source_references", errors)
+        require_list_field("quality/face-lock/face-lock.json", face_lock, "qualitative_locks", errors)
+        require_list_field("quality/face-lock/face-lock.json", face_lock, "tuning_notes", errors)
+        if "face_geometry" in face_lock and not isinstance(face_lock["face_geometry"], dict):
+            errors.append("Field must be an object in quality/face-lock/face-lock.json: face_geometry")
 
     if "training-package/manifest.json" in parsed:
         training_manifest = parsed["training-package/manifest.json"]

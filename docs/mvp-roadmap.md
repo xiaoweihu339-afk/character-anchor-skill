@@ -28,11 +28,24 @@ Publish a GitHub-ready MVP that proves the Character Anchor concept with one fic
 - Add portfolio case study.
 - Push to GitHub.
 
+## v0.3 Update
+
+The first published MVP proved the file structure and prompt compiler. Real user testing showed that the next useful version needs to start from raw media, not manual text fields.
+
+v0.3 adds a media-first scaffold:
+
+- media coverage inventory
+- local HTML review galleries
+- external golden-generation request payloads
+- golden candidate feedback logging
+
+v0.3 still does not include a built-in image generator or automatic face similarity scoring. See `docs/v0.3-roadmap.md`.
+
 ## Not In MVP
 
 - Production-grade real-person reference ingestion.
 - Automatic video frame extraction.
-- Automatic golden reference generation.
+- Built-in automatic golden reference generation.
 - Automatic golden gallery coverage-gap completion for missing back view, 90-degree profile, long-shot, and motion references.
 - Successful product image and prompt archiving.
 - Automated NSFW and authorization-risk review.

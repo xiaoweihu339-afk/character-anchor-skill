@@ -4,6 +4,10 @@
 
 Character Anchor Skill 是一个可复用的角色一致性工作流：它把大量人物素材清洗、筛选并沉淀成稳定的黄金参考图集，再用这些黄金参考图生成一致的人物图片和 AI 视频关键帧。
 
+这个仓库是一个可发布到 GitHub 的工作流 MVP 和参考实现。它也包含顶层 [SKILL.md](SKILL.md)，方便把流程当作可复用 skill 读取；当前本地 `0.3.0` 版本加入了媒体优先的辅助脚本，但仍然是基于文件和 CLI 的工作流脚手架，不是完整打包应用，也不是内置图像生成器。
+
+版本记录见 [CHANGELOG.md](CHANGELOG.md)，贡献和隐私规则见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## 核心理念
 
 角色锚点不是单张脸部参考图，而是一套经过整理的身份系统。它由原始图片、视频、Live Photo、候选生成图、用户反馈、黄金参考图和成功产品图共同构成。
@@ -28,9 +32,11 @@ AI 图片和视频工作流在多次生成同一人物时很容易漂移。用�
 -> 质量筛选
 -> 参考图质量门控
 -> 可用参考图选择
+-> 脸部几何数据锁定
 -> 覆盖率与参考图报告
 -> 用户选择继续深筛或直接生成
--> AI 生成黄金参考图候选
+-> 创建外部黄金候选图生成请求
+-> 外部身份保持工作流生成候选图
 -> 脸部相似度与用户像不像审核
 -> 用户审核与确认
 -> 黄金参考图集
@@ -38,6 +44,16 @@ AI 图片和视频工作流在多次生成同一人物时很容易漂移。用�
 -> 成功产品图归档
 -> 提示词与用户反馈优化
 ```
+
+真实使用时，默认应该从素材开始，而不是先让用户手填一大堆外貌字段：
+
+1. 选择上传模式：大量混乱素材，或用户精选的 10-30 张清晰参考。
+2. 先做素材覆盖率审计，诚实报告系统数到了什么、还没有视觉审核什么。
+3. 用 AI/人工审核剔除硬伤参考图。
+4. 从筛选好的参考图里锁定脸部几何数据，让后续黄金候选图尽量保持脸长、眼距、眉眼距离、嘴宽、下颌等稳定比例。
+5. 当聊天窗口无法可靠显示图片时，生成本地 HTML 图廊。
+6. 为外部身份保持图像工作流创建黄金候选图生成请求。
+7. 记录用户“像不像”的反馈，再决定是否进入 `references/golden/`。
 
 ## 现状 vs 规划
 
@@ -48,8 +64,10 @@ flowchart LR
     B["文本角色锚点卡"]
     C["提示词编译器"]
     D["结构校验器"]
-    E["纯文本 demo 角色"]
-    F["安全与授权元数据"]
+    E["素材覆盖清单工具"]
+    F["本地审阅图廊工具"]
+    N["黄金候选生成请求包"]
+    O["黄金候选反馈记录器"]
   end
 
   subgraph Planned["后续规划"]
@@ -63,26 +81,31 @@ flowchart LR
   end
 
   A --> G
-  B --> H
-  C --> I
-  D --> J
-  E --> K
-  F --> L
-  F --> M
+  B --> I
+  C --> M
+  D --> H
+  E --> H
+  F --> I
+  N --> M
+  O --> L
 ```
 
 ## 初版功能
 
 - 初始化可复用的人物角色锚点库。
-- 记录素材覆盖率审计工作流，避免后续实现大批量图片/视频导入时被悄悄缩减成少量抽样。
+- 用 `scripts/audit_media_coverage.py` 审计原始素材文件夹，让用户知道系统数到了多少图片/视频，以及哪些还没有被视觉审核。
+- 用 `scripts/build_review_gallery.py` 生成本地 HTML 审阅图廊。
+- 用 `scripts/update_face_lock.py` 在外部黄金候选图生成前记录脸部几何锁。
+- 用 `scripts/generate_golden.py` 创建外部黄金候选图生成请求包。
+- 用 `scripts/record_golden_feedback.py` 记录用户对候选图“像不像”的反馈。
 - 让审查覆盖范围对用户可见：在选择黄金参考图前，明确报告实际看过多少图片、视频和视频帧。
-- 由 AI 对原始参考图做硬伤筛选，再让用户选择继续深度筛选，或直接用当前合格参考图生成黄金候选图。
+- 为 AI/人工硬伤筛选预留工作流，再让用户选择继续深度筛选，或准备外部黄金候选图生成请求。
 - 存储原始参考图、拒绝参考图和已审核黄金参考图。
 - 区分目标人物和同一素材中出现的其他人物。
 - 在生成黄金候选图前，先拒绝或隔离低质量参考图。
 - 分开记录身份、脸部、身材、气质、动作、服装、风格和负面规则。
 - 把普通场景需求编译成角色一致性提示词。
-- AI 生成的黄金候选图必须通过脸部相似度和用户“像不像”审核后，才能进入 `references/golden/`。
+- 外部工作流生成的黄金候选图必须通过脸部相似度和用户“像不像”审核后，才能进入 `references/golden/`。
 - 记录黄金图集覆盖缺口，例如背面、90 度侧身、远景、全身和动作参考。
 - 预留产品图库结构，用于存放成功产品图及其提示词元数据。
 - 校验目录结构和 JSON/JSONL 文件。
@@ -91,6 +114,8 @@ flowchart LR
 ## 项目结构
 
 公开包只保留虚构的 `characters/mira-vale` demo。`characters/` 下本地测试角色库默认会被忽略，避免个人测试素材、用户素材或生成资产被误发布。
+
+如果你用 `init_character_anchor.py` 创建自己的角色库，它默认也不会被 Git 跟踪。这是隐私设计。真人或授权素材角色应保留在本地或私有仓库，除非你主动修改 `.gitignore`。
 
 ```text
 characters/<character-id>/
@@ -125,6 +150,8 @@ characters/<character-id>/
   feedback/
   adapters/
   quality/
+    coverage/
+    face-lock/
   training-package/
 ```
 
@@ -132,7 +159,7 @@ characters/<character-id>/
 
 黄金参考图集是这个 Skill 最重要的产物。它是一组经过审核的小型高质量参考图，用户之后生成图片或视频关键帧时可以反复调用。
 
-AI 生成的候选图默认不是黄金参考图。如果一张图很好看但不像目标人物或角色，它只能留在 `outputs/candidates/` 或 `outputs/failed/`，并记录失败原因，用来改进下一轮 prompt。
+外部工作流生成的候选图默认不是黄金参考图。如果一张图很好看但不像目标人物或角色，它只能留在 `outputs/candidates/` 或 `outputs/failed/`，并记录失败原因，用来改进下一轮 prompt。
 
 一个好的黄金图集应该包括：
 
@@ -202,7 +229,7 @@ python scripts/compile_prompt.py characters/mira-vale --request "Mira walks thro
 
 如果想把本次 prompt 写入角色的 JSONL 日志，可以额外加上 `--write`。
 
-纯文本 Mira Vale demo 不包含图片参考。对于已经拥有审核通过黄金参考图的角色，可以用索引 ID 或路径传入：
+纯文本 Mira Vale demo 不包含图片参考，也没有黄金参考图 ID。对于已经拥有审核通过黄金参考图的角色，可以用索引 ID 或路径传入：
 
 ```bash
 python scripts/compile_prompt.py characters/<character-id> --request "Character in a quiet archive room." --provider provider-neutral --reference-image <golden-reference-id-or-path>
@@ -217,6 +244,42 @@ python scripts/compile_prompt.py characters/<character-id> --request "Character 
 ```bash
 make demo
 ```
+
+### 试用媒体优先辅助工具
+
+先清点一个素材文件夹，但不要把“清点过”误当成“视觉审核过”：
+
+```bash
+python scripts/audit_media_coverage.py <path-to-raw-media>
+```
+
+生成本地 HTML 图片审阅图廊：
+
+```bash
+python scripts/build_review_gallery.py <path-to-images> --output outputs/tmp/review-gallery.html
+```
+
+创建或微调脸部几何锁：
+
+```bash
+python scripts/update_face_lock.py characters/<character-id> --measurement eye_spacing_ratio=1.0 --measurement face_length_to_width=1.42 --qualitative-lock "moderate eye spacing" --status estimated
+```
+
+为外部工作流创建黄金候选图生成请求包：
+
+```bash
+python scripts/generate_golden.py characters/mira-vale --request "Create a front, side, back, full-body, and long-shot golden candidate batch." --provider provider-neutral
+```
+
+如果传入 `--reference-image`，它必须是已审核黄金参考图 ID/路径，或真实存在于 `references/golden/` 下的文件。私有实验可以用 `--allow-unvalidated-reference` 跳过校验，但这类 payload 不应该用于公开发布或黄金图晋升。
+
+记录用户对生成候选图的反馈：
+
+```bash
+python scripts/record_golden_feedback.py characters/mira-vale --candidate-id candidate_0001 --user-rating 4 --liked-point "closer face shape" --disliked-point "jaw still too sharp" --dry-run
+```
+
+这些脚本故意把素材清点、审阅、生成请求和反馈记录分开。`generate_golden.py` 本身不生成图片，它只是为 ComfyUI、InstantID、PuLID、IP-Adapter 或其他外部身份保持工作流准备结构化请求。
 
 ### 创建自己的角色锚点库
 
@@ -245,4 +308,4 @@ python scripts/init_character_anchor.py --root . --character-id example-characte
 
 ## 当前状态
 
-`0.1.0` 是两天内可上线的初版：基于文件、CLI 驱动、模型无关。后续版本可以加入图片/视频导入、脸部相似度评分、黄金图集生成与覆盖缺口补全、产品图库浏览、视觉审核、模型适配器、UI 和训练数据导出。
+`0.3.0` 是媒体优先的工作流脚手架：它保留文件型 MVP，同时加入素材覆盖清点、本地 HTML 审阅图廊、外部黄金候选生成请求包和反馈记录。它仍然不包含自动脸部 embedding、生物相似度评分、视频抽帧或内置图像生成器。

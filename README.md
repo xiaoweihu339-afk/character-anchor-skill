@@ -4,6 +4,10 @@
 
 Character Anchor Skill is a reusable workflow for turning a large set of character media into a stable golden reference gallery, then using that gallery to generate consistent character images and video keyframes.
 
+This repository is a GitHub-ready workflow MVP and reference implementation. It also includes a top-level [SKILL.md](SKILL.md) so the workflow can be read as a portable skill definition. The current `0.3.0` local version adds media-first helper scripts, but it is still a CLI-driven workflow scaffold rather than a packaged app or built-in image generator.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and privacy rules.
+
 ## Core Idea
 
 A character anchor is not just a face reference. It is a curated identity system built from raw images, videos, Live Photos, generated candidates, user feedback, approved golden references, and successful product images.
@@ -28,9 +32,11 @@ raw user media
 -> quality filtering
 -> reference quality gate
 -> usable reference selection
+-> face geometry lock
 -> coverage and reference report
 -> user chooses deeper screening or generation
--> AI-generated golden reference candidates
+-> external golden-candidate generation request
+-> generated candidates from an external identity-preserving workflow
 -> face similarity and user likeness review
 -> user review and approval
 -> golden reference gallery
@@ -38,6 +44,16 @@ raw user media
 -> successful product image archive
 -> prompt and feedback optimization
 ```
+
+For real use, start with media instead of a long manual questionnaire:
+
+1. Choose upload mode: messy bulk media, or curated 10-30 clear references.
+2. Run a coverage audit so the system reports what it counted and what it has not visually reviewed.
+3. Use AI/human review to remove hard-defect source references.
+4. Lock face geometry from the selected references so later golden candidates preserve face length, eye spacing, brow distance, mouth width, jaw shape, and other stable proportions.
+5. Build a local review gallery when chat previews are unreliable.
+6. Create a golden-candidate generation request for an external identity-preserving image workflow.
+7. Record user likeness feedback before anything is promoted into `references/golden/`.
 
 ## Current vs Planned
 
@@ -48,8 +64,10 @@ flowchart LR
     B["Text anchor card"]
     C["Prompt compiler"]
     D["Validator"]
-    E["Text-only demo character"]
-    F["Safety and consent metadata"]
+    E["Media coverage inventory helper"]
+    F["Local review gallery helper"]
+    N["Golden generation request payload"]
+    O["Golden feedback recorder"]
   end
 
   subgraph Planned["Planned Roadmap"]
@@ -63,26 +81,31 @@ flowchart LR
   end
 
   A --> G
-  B --> H
-  C --> I
-  D --> J
-  E --> K
-  F --> L
-  F --> M
+  B --> I
+  C --> M
+  D --> H
+  E --> H
+  F --> I
+  N --> M
+  O --> L
 ```
 
 ## MVP Features
 
 - Initialize a reusable character anchor library.
-- Document a media coverage audit workflow so future large image/video ingestion is not silently reduced to a small sample.
+- Audit a raw media folder with `scripts/audit_media_coverage.py` so users can see how many images/videos were inventoried and what has not been visually reviewed.
+- Build a local HTML review gallery with `scripts/build_review_gallery.py`.
+- Record a face geometry lock with `scripts/update_face_lock.py` before preparing external golden-candidate generation.
+- Create an external golden-candidate generation request with `scripts/generate_golden.py`.
+- Record user likeness feedback with `scripts/record_golden_feedback.py`.
 - Make review coverage user-visible: report how many images, videos, and frames were actually inspected before golden references are selected.
-- Let AI filter source references for hard defects, then let the user choose whether to run deeper screening or generate golden candidates from the current usable references.
+- Reserve an AI/human source-reference screening workflow for hard defects, then let the user choose whether to run deeper screening or prepare an external golden-candidate generation request.
 - Store raw references, rejected references, and approved golden references.
 - Separate the target character from other people who appear in the same media.
 - Reject or quarantine low-quality references before they can affect golden candidate generation.
 - Store identity, face, body, presence, motion, wardrobe, style, and negative rules separately.
 - Compile a raw scene request into a character-consistent prompt.
-- Keep generated golden candidates out of `references/golden/` until they pass face similarity and user likeness review.
+- Keep externally generated golden candidates out of `references/golden/` until they pass face similarity and user likeness review.
 - Track golden gallery coverage gaps such as back view, 90-degree side view, long shot, full body, and motion references.
 - Reserve a product gallery structure for successful images and prompt metadata.
 - Validate the library structure and JSON/JSONL files.
@@ -91,6 +114,8 @@ flowchart LR
 ## Project Structure
 
 The public package intentionally includes only the fictional `characters/mira-vale` demo. Local test character libraries under `characters/` are ignored by default so private experiments, user media, and generated assets do not get published accidentally.
+
+If you create your own character with `init_character_anchor.py`, it will also be ignored by Git by default. This is a privacy feature. Keep real-person or authorized-media libraries local or in a private repository unless you intentionally change `.gitignore`.
 
 ```text
 characters/<character-id>/
@@ -125,6 +150,8 @@ characters/<character-id>/
   feedback/
   adapters/
   quality/
+    coverage/
+    face-lock/
   training-package/
 ```
 
@@ -202,7 +229,7 @@ python scripts/compile_prompt.py characters/mira-vale --request "Mira walks thro
 
 Add `--write` if you want to append the prompt to the character's JSONL logs.
 
-The text-only Mira Vale demo does not include image references. For a character that already has approved golden references, you can pass them by indexed id or path:
+The text-only Mira Vale demo does not include image references or golden image IDs. For a character that already has approved golden references, you can pass them by indexed id or path:
 
 ```bash
 python scripts/compile_prompt.py characters/<character-id> --request "Character in a quiet archive room." --provider provider-neutral --reference-image <golden-reference-id-or-path>
@@ -217,6 +244,42 @@ If you have `make` installed, you can run the read-only demo flow with:
 ```bash
 make demo
 ```
+
+### Try the media-first helpers
+
+Inventory a media folder without claiming visual review:
+
+```bash
+python scripts/audit_media_coverage.py <path-to-raw-media>
+```
+
+Build a local HTML gallery for image review:
+
+```bash
+python scripts/build_review_gallery.py <path-to-images> --output outputs/tmp/review-gallery.html
+```
+
+Create or tune a face geometry lock:
+
+```bash
+python scripts/update_face_lock.py characters/<character-id> --measurement eye_spacing_ratio=1.0 --measurement face_length_to_width=1.42 --qualitative-lock "moderate eye spacing" --status estimated
+```
+
+Create a golden-candidate generation request payload for an external workflow:
+
+```bash
+python scripts/generate_golden.py characters/mira-vale --request "Create a front, side, back, full-body, and long-shot golden candidate batch." --provider provider-neutral
+```
+
+If you pass `--reference-image`, the value must be an approved golden reference id/path or a real file under `references/golden/`. Private experiments can opt out with `--allow-unvalidated-reference`, but those payloads should not be used for public release or golden promotion.
+
+Record user feedback on a generated candidate:
+
+```bash
+python scripts/record_golden_feedback.py characters/mira-vale --candidate-id candidate_0001 --user-rating 4 --liked-point "closer face shape" --disliked-point "jaw still too sharp" --dry-run
+```
+
+The helper scripts intentionally separate inventory, review, generation requests, and feedback. `generate_golden.py` does not generate pixels by itself; it prepares a structured payload for ComfyUI, InstantID, PuLID, IP-Adapter, or another external identity-preserving workflow.
 
 ### Create your own character anchor
 
@@ -245,4 +308,4 @@ This project is designed as an AI portfolio piece for character consistency in A
 
 ## Status
 
-Version `0.1.0` is a two-day MVP: file-based, CLI-driven, and model-agnostic. Future versions can add image/video ingestion, face-focused reference scoring, golden gallery generation and coverage-gap completion, product gallery browsing, visual review, provider adapters, UI, and dataset export.
+Version `0.3.0` is a media-first workflow scaffold: it keeps the file-based MVP, then adds coverage inventory, HTML review galleries, external golden-generation request payloads, and feedback recording. It still does not include automatic face embeddings, biometric similarity scoring, video frame extraction, or a built-in image generator.

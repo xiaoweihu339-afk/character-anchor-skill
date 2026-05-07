@@ -74,41 +74,124 @@ Use JSON for structured files and JSONL for append-only event logs. Keep paths r
 }
 ```
 
-## references/coverage-manifest.json (planned)
+## quality/coverage/coverage-manifest.json
 
-Future-only suggested shape for large media ingestion. The current MVP does not create or validate this file yet:
+Created by `scripts/audit_media_coverage.py --write --character-root characters/<character-id>`. This is an inventory manifest, not a visual review certificate:
 
 ```json
 {
   "schema_version": "1.0.0",
-  "coverage_status": "partial_review",
+  "created_at": "2026-05-05T00:00:00+08:00",
+  "source_root": "C:/path/to/raw-media",
+  "review_stage": "inventory_only",
+  "coverage_status": "inventory_only_not_visual_review",
+  "total_files": 0,
   "total_images": 0,
   "total_videos": 0,
-  "total_live_photos": 0,
+  "total_unsupported_files": 0,
   "processed_images": 0,
   "processed_videos": 0,
-  "processed_live_photos": 0,
-  "video_frame_strategy": {
-    "method": "interval_and_scene_change",
-    "frame_interval_seconds": null,
-    "scene_change_detection": false,
-    "max_frames_per_video": null
-  },
-  "contact_sheets": [],
-  "batches": [],
-  "skipped_files": [],
-  "unprocessed_files": [],
-  "coverage_notes": []
+  "sampled_images": 0,
+  "sampled_videos": 0,
+  "inspected_video_frames": 0,
+  "coverage_honesty_note": "",
+  "recommended_next_step": "",
+  "inventory_preview": [],
+  "inventory_preview_omitted_files": 0
 }
 ```
 
 Suggested `coverage_status` values:
 
+- `inventory_only_not_visual_review`
 - `full_review`
 - `batched_review`
 - `sampled_preview`
 - `partial_review`
 - `user_selected_only`
+
+## quality/face-lock/face-lock.json
+
+Created by `scripts/update_face_lock.py`. This file sits between usable reference selection and golden-candidate generation. It records stable face geometry as relative ratios so future prompts, external image workflows, and user feedback can tune the same identity instead of starting over.
+
+```json
+{
+  "schema_version": "1.0.0",
+  "status": "estimated",
+  "measurement_unit": "relative_ratio",
+  "source_references": [
+    "ref_0001"
+  ],
+  "face_geometry": {
+    "face_length_to_width": 1.42,
+    "forehead_height_ratio": null,
+    "eye_spacing_ratio": 1.0,
+    "eye_width_ratio": null,
+    "brow_to_eye_distance_ratio": 0.18,
+    "nose_length_ratio": null,
+    "nose_width_ratio": null,
+    "mouth_width_ratio": 0.42,
+    "upper_lip_to_lower_lip_ratio": null,
+    "jaw_width_ratio": 0.72,
+    "chin_length_ratio": null,
+    "cheekbone_width_ratio": 0.86
+  },
+  "qualitative_locks": [
+    "moderate eye spacing",
+    "softly tapered jaw"
+  ],
+  "tuning_notes": [
+    "jaw should be less sharp"
+  ],
+  "updated_at": "2026-05-05T00:00:00+08:00"
+}
+```
+
+Suggested `status` values:
+
+- `draft`
+- `estimated`
+- `reviewed`
+- `locked`
+
+## outputs/candidates/golden-generation-requests/*.json
+
+Created by `scripts/generate_golden.py`. This is an external generation request payload, not an image output:
+
+```json
+{
+  "schema_version": "1.0.0",
+  "request_id": "golden_request_20260505_000000_000000",
+  "character_id": "example-character",
+  "display_name": "Example Character",
+  "anchor_version": "0.3.0",
+  "provider": "provider-neutral",
+  "status": "request_payload_only",
+  "honesty_note": "This script does not generate images by itself.",
+  "raw_request": "",
+  "reference_images": [],
+  "coverage_targets": [
+    "front_face",
+    "three_quarter_face",
+    "ninety_degree_profile",
+    "back_view",
+    "upper_body",
+    "full_body",
+    "long_shot_silhouette",
+    "motion_reference"
+  ],
+  "identity_inputs": {
+    "anchor_card": "",
+    "face_anchor": "",
+    "face_lock": {},
+    "body_anchor": "",
+    "negative_rules": ""
+  },
+  "quality_gate_before_promotion": [],
+  "reference_validation": "approved_golden_references_only",
+  "suggested_output_route": "outputs/candidates/"
+}
+```
 
 ## anchor-library/invariants.md
 
@@ -307,6 +390,7 @@ Each line:
   "liked_points": [],
   "disliked_points": [],
   "reuse_as_reference": false,
+  "promote_to_golden_candidate": false,
   "correction_notes": [],
   "created_at": "2026-05-05T00:00:00+08:00"
 }

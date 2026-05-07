@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "status": "estimated",
+  "measurement_unit": "relative_ratio",
+  "source_references": [
+    "text-only-demo-anchor"
+  ],
+  "face_geometry": {
+    "face_length_to_width": 1.42,
+    "forehead_height_ratio": null,
+    "eye_spacing_ratio": 1.0,
+    "eye_width_ratio": null,
+    "brow_to_eye_distance_ratio": 0.18,
+    "nose_length_ratio": null,
+    "nose_width_ratio": null,
+    "mouth_width_ratio": 0.42,
+    "upper_lip_to_lower_lip_ratio": null,
+    "jaw_width_ratio": 0.72,
+    "chin_length_ratio": null,
+    "cheekbone_width_ratio": 0.86
+  },
+  "qualitative_locks": [
+    "oval face with softly defined jaw",
+    "moderate eye spacing, not wide-eyed or doll-like",
+    "low-to-medium brow distance",
+    "medium-width natural mouth",
+    "soft cheekbones without sharp fashion contouring"
+  ],
+  "tuning_notes": [
+    "Demo values are estimated from text anchors, not measured from real imagery."
+  ],
+  "updated_at": "2026-05-07T10:13:00+08:00"
+}

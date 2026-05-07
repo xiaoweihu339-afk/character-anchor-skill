@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 venv/
 outputs/tmp/
+.local/
 
 # Keep the public package clean: local test character libraries stay private.
 characters/*
