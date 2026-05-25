@@ -1,0 +1,4 @@
+interface:
+  display_name: "Character Anchor Wizard"
+  short_description: "Guided Codex image character anchors for stable identity."
+  default_prompt: "Create, continue, audit, or apply a guided character anchor library. Use Codex built-in image generation by default, collect character identity one step at a time, maintain original and golden references, score generated outputs for drift, and learn from user feedback so the same character remains recognizable across scenes, outfits, poses, and styles."

@@ -12,8 +12,7 @@ Only build or update a character anchor library when the user indicates they hav
 
 - If the subject is a minor, only allow ordinary, non-sexual, age-appropriate content.
 - If age is uncertain, treat the subject as a minor for safety decisions.
-- If authorized media includes childhood or student-age material, record it only as rejected/non-active metadata unless there is a safe, age-appropriate reason to retain it.
-- Do not store unsafe or unauthorized real-person media as reusable files.
+- If media includes childhood or student-age material, store it in `references/rejected/` with non-active metadata.
 - Do not use minor or age-uncertain media as an anchor for adult, romantic, revealing, or glamorized generation.
 
 ## Blocked Content

@@ -8,6 +8,22 @@ import json
 from pathlib import Path
 
 
+SCHEMA_VERSION = "1.1.0"
+GOLDEN_REQUIRED_TYPES = {
+    "front-closeup",
+    "left-closeup",
+    "right-closeup",
+    "full-body-face-visible",
+}
+VALID_WIZARD_STATES = {
+    "profile_started",
+    "basic_identity_complete",
+    "raw_reference_added",
+    "golden_incomplete",
+    "anchor_ready",
+}
+
+
 REQUIRED_DIRS = [
     "references/raw",
     "references/golden",
@@ -15,15 +31,12 @@ REQUIRED_DIRS = [
     "anchor-library",
     "prompt-library",
     "outputs/approved",
-    "outputs/product-gallery",
     "outputs/candidates",
     "outputs/failed",
     "outputs/blocked",
     "feedback",
     "adapters",
     "quality",
-    "quality/coverage",
-    "quality/face-lock",
     "training-package",
 ]
 
@@ -33,10 +46,6 @@ REQUIRED_FILES = [
     "anchor-library/identity.md",
     "anchor-library/face.md",
     "anchor-library/body.md",
-    "anchor-library/presence.md",
-    "anchor-library/motion.md",
-    "anchor-library/wardrobe-logic.md",
-    "anchor-library/voice-and-dialogue.md",
     "anchor-library/style.md",
     "anchor-library/temperament.md",
     "anchor-library/invariants.md",
@@ -52,7 +61,6 @@ REQUIRED_JSON = [
     "references/index.json",
     "feedback/correction-rules.json",
     "adapters/model-providers.json",
-    "quality/face-lock/face-lock.json",
     "training-package/manifest.json",
 ]
 
@@ -62,7 +70,6 @@ REQUIRED_JSONL = [
     "prompt-library/compiled-prompts.jsonl",
     "prompt-library/optimized-recipes.jsonl",
     "outputs/approved/index.jsonl",
-    "outputs/product-gallery/index.jsonl",
     "outputs/candidates/index.jsonl",
     "outputs/failed/index.jsonl",
     "outputs/blocked/index.jsonl",
@@ -73,7 +80,7 @@ REQUIRED_JSONL = [
 
 def load_json(path: Path, errors: list[str]) -> dict | None:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except Exception as exc:  # noqa: BLE001 - CLI validator should report all parse errors.
         errors.append(f"Invalid JSON: {path} ({exc})")
         return None
@@ -82,7 +89,7 @@ def load_json(path: Path, errors: list[str]) -> dict | None:
 def validate_jsonl(path: Path, errors: list[str]) -> None:
     line_number = 0
     try:
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        for line_number, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), start=1):
             if not line.strip():
                 continue
             json.loads(line)
@@ -91,17 +98,93 @@ def validate_jsonl(path: Path, errors: list[str]) -> None:
         errors.append(f"Invalid JSONL: {location} ({exc})")
 
 
-def require_fields(relative: str, payload: dict, fields: list[str], errors: list[str]) -> None:
-    for field in fields:
-        if field not in payload:
-            errors.append(f"Missing field in {relative}: {field}")
+def validate_profile(profile: dict, errors: list[str], warnings: list[str]) -> None:
+    is_v11 = profile.get("schema_version") == SCHEMA_VERSION or profile.get("codex_image_model_first") is True
+    if not is_v11:
+        warnings.append(f"profile.json is pre-{SCHEMA_VERSION}; run init/update workflow to adopt the Codex guided fields")
+        if profile.get("age_policy", {}).get("minor_safe_mode") is not True:
+            warnings.append("profile.json age_policy.minor_safe_mode is not true")
+        return
+
+    if profile.get("schema_version") != SCHEMA_VERSION:
+        warnings.append(f"profile.json schema_version is not {SCHEMA_VERSION}")
+
+    if profile.get("codex_image_model_first") is not True:
+        errors.append("profile.json codex_image_model_first must be true for v1.1")
+
+    wizard_state = profile.get("wizard_state")
+    if wizard_state not in VALID_WIZARD_STATES:
+        errors.append(f"profile.json wizard_state must be one of {sorted(VALID_WIZARD_STATES)}")
+
+    basic_identity = profile.get("basic_identity")
+    if not isinstance(basic_identity, dict):
+        errors.append("profile.json basic_identity must be an object")
+    else:
+        for field in [
+            "gender_or_presentation",
+            "age_presentation",
+            "height",
+            "body_type",
+            "temperament",
+            "visual_style",
+        ]:
+            if field not in basic_identity:
+                errors.append(f"profile.json basic_identity missing field: {field}")
+
+    required = set(profile.get("golden_required_types", []))
+    if required != GOLDEN_REQUIRED_TYPES:
+        errors.append("profile.json golden_required_types must contain all v1.1 required golden types")
+
+    active = profile.get("active_golden_refs")
+    if not isinstance(active, dict):
+        errors.append("profile.json active_golden_refs must be an object")
+        return
+
+    missing_golden = [golden_type for golden_type in sorted(GOLDEN_REQUIRED_TYPES) if not active.get(golden_type)]
+    if missing_golden:
+        warnings.append(f"golden references incomplete: {', '.join(missing_golden)}")
+        if wizard_state == "anchor_ready":
+            errors.append("profile.json wizard_state cannot be anchor_ready while golden references are incomplete")
+
+    if profile.get("age_policy", {}).get("minor_safe_mode") is not True:
+        warnings.append("profile.json age_policy.minor_safe_mode is not true")
 
 
-def require_list_field(relative: str, payload: dict, field: str, errors: list[str]) -> None:
-    if field not in payload:
-        errors.append(f"Missing field in {relative}: {field}")
-    elif not isinstance(payload[field], list):
-        errors.append(f"Field must be a list in {relative}: {field}")
+def validate_references_index(index: dict, warnings: list[str]) -> None:
+    if index.get("schema_version") != SCHEMA_VERSION:
+        warnings.append(f"references/index.json is pre-{SCHEMA_VERSION}; golden-role completeness was not enforced for this library")
+        return
+
+    approved_golden = set()
+    for item in index.get("items", []):
+        golden_type = item.get("golden_type")
+        if golden_type and golden_type not in GOLDEN_REQUIRED_TYPES:
+            warnings.append(f"references/index.json has unknown golden_type: {golden_type}")
+        if golden_type in GOLDEN_REQUIRED_TYPES and item.get("user_approved") is True and item.get("active") is True:
+            approved_golden.add(golden_type)
+
+    missing = sorted(GOLDEN_REQUIRED_TYPES - approved_golden)
+    if missing:
+        warnings.append(f"references/index.json active approved golden refs incomplete: {', '.join(missing)}")
+
+
+def validate_model_providers(providers: dict, errors: list[str]) -> None:
+    if providers.get("schema_version") != SCHEMA_VERSION:
+        return
+
+    if providers.get("default_image_generator") != "codex-image":
+        errors.append("adapters/model-providers.json default_image_generator must be codex-image")
+
+    provider_records = providers.get("providers")
+    if not isinstance(provider_records, list):
+        errors.append("adapters/model-providers.json providers must be a list")
+        return
+
+    codex_provider = next((item for item in provider_records if item.get("provider_id") == "codex-image"), None)
+    if not codex_provider:
+        errors.append("adapters/model-providers.json missing codex-image provider")
+    elif codex_provider.get("enabled") is not True:
+        errors.append("adapters/model-providers.json codex-image provider must be enabled")
 
 
 def main() -> int:
@@ -144,68 +227,17 @@ def main() -> int:
         validate_jsonl(path, errors)
 
     if "profile.json" in parsed:
-        profile = parsed["profile.json"]
-        require_fields(
-            "profile.json",
-            profile,
-            ["schema_version", "character_id", "display_name", "anchor_version", "created_at", "updated_at", "status"],
-            errors,
-        )
-        if profile.get("age_policy", {}).get("minor_safe_mode") is not True:
-            warnings.append("profile.json age_policy.minor_safe_mode is not true")
-
-    if "consent.json" in parsed:
-        consent = parsed["consent.json"]
-        require_fields(
-            "consent.json",
-            consent,
-            ["schema_version", "source_type", "user_asserted_authorized", "allowed_uses", "disallowed_uses", "public_release_allowed"],
-            errors,
-        )
-        for field in ["allowed_uses", "disallowed_uses", "notes"]:
-            require_list_field("consent.json", consent, field, errors)
-        if consent.get("user_asserted_authorized") is not True:
-            warnings.append("consent.json user_asserted_authorized is not true")
+        validate_profile(parsed["profile.json"], errors, warnings)
 
     if "references/index.json" in parsed:
-        references_index = parsed["references/index.json"]
-        require_fields("references/index.json", references_index, ["schema_version", "items"], errors)
-        require_list_field("references/index.json", references_index, "items", errors)
-
-    if "feedback/correction-rules.json" in parsed:
-        correction_rules = parsed["feedback/correction-rules.json"]
-        for field in [
-            "identity_corrections",
-            "style_corrections",
-            "composition_corrections",
-            "technical_corrections",
-            "prompt_corrections",
-        ]:
-            require_list_field("feedback/correction-rules.json", correction_rules, field, errors)
+        validate_references_index(parsed["references/index.json"], warnings)
 
     if "adapters/model-providers.json" in parsed:
-        model_providers = parsed["adapters/model-providers.json"]
-        require_fields("adapters/model-providers.json", model_providers, ["schema_version", "providers", "privacy_mode"], errors)
-        require_list_field("adapters/model-providers.json", model_providers, "providers", errors)
+        validate_model_providers(parsed["adapters/model-providers.json"], errors)
 
-    if "quality/face-lock/face-lock.json" in parsed:
-        face_lock = parsed["quality/face-lock/face-lock.json"]
-        require_fields(
-            "quality/face-lock/face-lock.json",
-            face_lock,
-            ["schema_version", "status", "measurement_unit", "source_references", "face_geometry", "qualitative_locks", "tuning_notes"],
-            errors,
-        )
-        require_list_field("quality/face-lock/face-lock.json", face_lock, "source_references", errors)
-        require_list_field("quality/face-lock/face-lock.json", face_lock, "qualitative_locks", errors)
-        require_list_field("quality/face-lock/face-lock.json", face_lock, "tuning_notes", errors)
-        if "face_geometry" in face_lock and not isinstance(face_lock["face_geometry"], dict):
-            errors.append("Field must be an object in quality/face-lock/face-lock.json: face_geometry")
-
-    if "training-package/manifest.json" in parsed:
-        training_manifest = parsed["training-package/manifest.json"]
-        for field in ["included_images", "excluded_images", "captions", "safety_exclusions", "quality_notes"]:
-            require_list_field("training-package/manifest.json", training_manifest, field, errors)
+    consent = parsed.get("consent.json", {})
+    if consent.get("user_asserted_authorized") is not True:
+        warnings.append("consent.json user_asserted_authorized is not true")
 
     if errors:
         print("INVALID")

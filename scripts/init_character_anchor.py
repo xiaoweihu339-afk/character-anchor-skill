@@ -10,7 +10,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
+GOLDEN_REQUIRED_TYPES = [
+    "front-closeup",
+    "left-closeup",
+    "right-closeup",
+    "full-body-face-visible",
+]
 
 
 DIRECTORIES = [
@@ -20,15 +26,12 @@ DIRECTORIES = [
     "anchor-library",
     "prompt-library",
     "outputs/approved/prompt-cards",
-    "outputs/product-gallery",
     "outputs/candidates",
     "outputs/failed",
     "outputs/blocked",
     "feedback",
     "adapters",
     "quality",
-    "quality/coverage",
-    "quality/face-lock",
     "training-package",
 ]
 
@@ -37,6 +40,15 @@ ANCHOR_FILES = {
     "anchor-card.md": """# {display_name} Anchor Card
 
 ## Identity Summary
+
+## Basic Identity
+
+- Gender or presentation:
+- Age presentation:
+- Height:
+- Body type:
+- Temperament:
+- Visual style:
 
 ## Age Presentation
 
@@ -58,23 +70,47 @@ ANCHOR_FILES = {
 
 ## Golden References
 
+- front-closeup:
+- left-closeup:
+- right-closeup:
+- full-body-face-visible:
+
 ## Common Drift Risks
 
-## Current Best Reusable Prompt
+## Current Best Reusable Codex Prompt
 """,
     "anchor-library/identity.md": "# Identity\n\n",
     "anchor-library/face.md": "# Face\n\n",
     "anchor-library/body.md": "# Body\n\n",
-    "anchor-library/presence.md": "# Presence\n\n",
-    "anchor-library/motion.md": "# Motion\n\n",
-    "anchor-library/wardrobe-logic.md": "# Wardrobe Logic\n\n",
-    "anchor-library/voice-and-dialogue.md": "# Voice And Dialogue\n\n",
     "anchor-library/style.md": "# Style\n\n",
     "anchor-library/temperament.md": "# Temperament\n\n",
     "anchor-library/invariants.md": "# Invariants\n\n",
     "anchor-library/allowed-variations.md": "# Allowed Variations\n\n",
     "anchor-library/negative-rules.md": "# Negative Rules\n\n",
-    "quality/review-rubric.md": "# Review Rubric\n\n",
+    "quality/review-rubric.md": """# Review Rubric
+
+Score each item from 0 to 5. User feedback overrides Codex scoring when updating rules.
+
+## Identity
+
+## Face Shape
+
+## Facial Features
+
+## Hair
+
+## Body Proportions
+
+## Outfit Anchors
+
+## Style
+
+## Age Presentation
+
+## Reference Alignment
+
+## Drift Risk
+""",
 }
 
 
@@ -95,40 +131,38 @@ JSON_FILES = {
     "feedback/correction-rules.json": {
         "schema_version": SCHEMA_VERSION,
         "identity_corrections": [],
+        "face_corrections": [],
         "style_corrections": [],
         "composition_corrections": [],
         "technical_corrections": [],
         "prompt_corrections": [],
-    },
-    "quality/face-lock/face-lock.json": {
-        "schema_version": SCHEMA_VERSION,
-        "status": "draft",
-        "measurement_unit": "relative_ratio",
-        "source_references": [],
-        "face_geometry": {
-            "face_length_to_width": None,
-            "forehead_height_ratio": None,
-            "eye_spacing_ratio": None,
-            "eye_width_ratio": None,
-            "brow_to_eye_distance_ratio": None,
-            "nose_length_ratio": None,
-            "nose_width_ratio": None,
-            "mouth_width_ratio": None,
-            "upper_lip_to_lower_lip_ratio": None,
-            "jaw_width_ratio": None,
-            "chin_length_ratio": None,
-            "cheekbone_width_ratio": None,
-        },
-        "qualitative_locks": [],
-        "tuning_notes": [],
-        "updated_at": None,
+        "scoring_adjustments": [],
     },
     "adapters/model-providers.json": {
         "schema_version": SCHEMA_VERSION,
-        "default_llm": None,
-        "default_vision_reviewer": None,
-        "default_image_generator": None,
-        "providers": [],
+        "default_llm": "codex",
+        "default_vision_reviewer": "codex-vision",
+        "default_image_generator": "codex-image",
+        "providers": [
+            {
+                "provider_id": "codex-image",
+                "adapter_type": "image_generator",
+                "interface": "codex_builtin",
+                "enabled": True,
+                "default": True,
+                "input_contract": {
+                    "prompt": "string",
+                    "reference_images": "array?",
+                    "size": "string?",
+                    "quality": "string?",
+                },
+                "output_contract": {
+                    "image_path": "string",
+                    "metadata": "object",
+                },
+                "safety_notes": [],
+            }
+        ],
         "privacy_mode": {
             "prefer_local_for_biometrics": True,
             "allow_remote_generation": None,
@@ -136,7 +170,7 @@ JSON_FILES = {
     },
     "training-package/manifest.json": {
         "schema_version": SCHEMA_VERSION,
-        "anchor_version": "0.1.0",
+        "anchor_version": SCHEMA_VERSION,
         "target_adapter_type": None,
         "included_images": [],
         "excluded_images": [],
@@ -152,7 +186,6 @@ JSONL_FILES = [
     "prompt-library/compiled-prompts.jsonl",
     "prompt-library/optimized-recipes.jsonl",
     "outputs/approved/index.jsonl",
-    "outputs/product-gallery/index.jsonl",
     "outputs/candidates/index.jsonl",
     "outputs/failed/index.jsonl",
     "outputs/blocked/index.jsonl",
@@ -186,7 +219,7 @@ def main() -> int:
     parser.add_argument("--root", required=True, help="Workspace root or characters directory.")
     parser.add_argument("--character-id", required=True, help="Stable lowercase id, e.g. example-character.")
     parser.add_argument("--display-name", required=True, help="Human-readable character name.")
-    parser.add_argument("--anchor-version", default="0.3.0", help="Initial anchor version.")
+    parser.add_argument("--anchor-version", default=SCHEMA_VERSION, help="Initial anchor version.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing template files.")
     args = parser.parse_args()
 
@@ -200,21 +233,44 @@ def main() -> int:
     for directory in DIRECTORIES:
         (character_root / directory).mkdir(parents=True, exist_ok=True)
 
-    created_at = now_iso()
+    timestamp = now_iso()
     profile = {
         "schema_version": SCHEMA_VERSION,
         "character_id": args.character_id,
         "display_name": args.display_name,
         "anchor_version": args.anchor_version,
-        "created_at": created_at,
-        "updated_at": created_at,
+        "created_at": timestamp,
+        "updated_at": timestamp,
         "status": "draft",
+        "wizard_state": "profile_started",
+        "codex_image_model_first": True,
+        "basic_identity": {
+            "gender_or_presentation": None,
+            "age_presentation": None,
+            "height": None,
+            "body_type": None,
+            "temperament": None,
+            "visual_style": None,
+        },
+        "golden_required_types": GOLDEN_REQUIRED_TYPES,
+        "active_golden_refs": {golden_type: None for golden_type in GOLDEN_REQUIRED_TYPES},
+        "drift_thresholds": {
+            "minimum_identity_score": 4,
+            "maximum_drift_risk": 2,
+        },
         "authorization_status": "unknown",
         "age_policy": {
             "declared_adult": None,
             "age_uncertain": True,
             "minor_safe_mode": True,
         },
+        "version_history": [
+            {
+                "version": args.anchor_version,
+                "created_at": timestamp,
+                "notes": "Initialized guided Codex image character anchor library.",
+            }
+        ],
         "notes": [],
     }
     write_json(character_root / "profile.json", profile, args.overwrite)

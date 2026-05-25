@@ -4,9 +4,34 @@
 
 Character Anchor Skill is a reusable workflow for turning a large set of character media into a stable golden reference gallery, then using that gallery to generate consistent character images and video keyframes.
 
-This repository is a GitHub-ready workflow MVP and reference implementation. It also includes a top-level [SKILL.md](SKILL.md) so the workflow can be read as a portable skill definition. The current `0.3.0` local version adds media-first helper scripts, but it is still a CLI-driven workflow scaffold rather than a packaged app or built-in image generator.
+This repository is a GitHub-ready workflow MVP and reference implementation. It also includes a top-level [SKILL.md](SKILL.md) so the workflow can be read as a portable skill definition. The current `1.1.0` local version adds a guided Codex image workflow on top of the earlier media-first scaffold.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes and [CONTRIBUTING.md](CONTRIBUTING.md) for contribution and privacy rules.
+
+## v1.1 Codex Guided Workflow
+
+Version `1.1.0` keeps the model-agnostic asset library, but makes Codex built-in image generation the default path for ordinary use.
+
+The guided wizard collects one step at a time:
+
+1. Character name.
+2. Gender or presentation.
+3. Age presentation.
+4. Height.
+5. Body type.
+6. Temperament.
+7. Visual style.
+8. Original reference image.
+9. Four approved golden references.
+
+The four required golden reference roles are:
+
+- `front-closeup`: frontal headshot.
+- `left-closeup`: left side headshot.
+- `right-closeup`: right side headshot.
+- `full-body-face-visible`: full body image with visible face.
+
+When golden references are incomplete, generation is still allowed, but Codex should warn about drift risk and route outputs to `outputs/candidates/` by default. Codex performs the first visual score, and user feedback has higher priority when updating correction rules.
 
 ## Core Idea
 

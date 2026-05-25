@@ -2,6 +2,14 @@
 
 All notable changes to Character Anchor Skill will be recorded here.
 
+## 1.1.0 - Codex Guided Image Workflow
+
+- Made Codex built-in image generation the default workflow while preserving optional model adapters.
+- Added a one-step-at-a-time character setup wizard with resumable `wizard_state`.
+- Added required golden reference roles: `front-closeup`, `left-closeup`, `right-closeup`, and `full-body-face-visible`.
+- Updated schemas, initialization, validation, and prompt cards for Codex compiled prompts, visual scoring, and user feedback.
+- Changed validation so incomplete golden references produce warnings instead of blocking the character library.
+
 ## 0.3.0 - Media-First Workflow Scaffold
 
 - Reframed the next real-use path around user media first: inventory, coverage honesty, hard-defect screening, review galleries, generation request payloads, and feedback recording.
